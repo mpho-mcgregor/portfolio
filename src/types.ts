@@ -32,7 +32,8 @@ export interface Review {
   date: string;
 }
 
-export interface Creative {
+/** List/preview shape returned by GET /api/creatives. */
+export interface CreativeSummary {
   id: string;
   name: string;
   tagline: string;
@@ -43,8 +44,32 @@ export interface Creative {
   /** Starting price in ZAR, used for list previews. */
   startingPrice: number;
   rating: number;
+  reviewCount: number;
   likes: number;
   bio: string;
+}
+
+/** Full profile returned by GET /api/creatives/:id. */
+export interface CreativeDetail extends CreativeSummary {
   services: Service[];
   reviews: Review[];
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface Booking {
+  id: string;
+  date: string;
+  name: string;
+  creativeId: string;
+  creativeName: string;
+  city: string;
+  province: string;
+  serviceId: string;
+  serviceTitle: string;
+  servicePrice: number;
 }

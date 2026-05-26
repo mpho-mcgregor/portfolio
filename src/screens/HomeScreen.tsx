@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,7 +29,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { creatives } = useApp();
+  const { creatives, loading, error, refresh } = useApp();
 
   // Responsive grid: aim for ~110px tiles, clamped between 3 and 5 columns.
   const numColumns = Math.min(5, Math.max(3, Math.floor(width / 110)));
@@ -97,13 +98,22 @@ const HomeScreen: React.FC = () => {
         </Pressable>
       </View>
       <View style={styles.list}>
-        {featured.map((c) => (
-          <CreativeCard
-            key={c.id}
-            creative={c}
-            onPress={() => navigation.navigate('CreativeDetail', { creativeId: c.id })}
-          />
-        ))}
+        {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />}
+        {error && !loading && (
+          <Pressable style={styles.error} onPress={refresh}>
+            <Ionicons name="cloud-offline-outline" size={28} color={colors.textMuted} />
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retry}>Tap to retry</Text>
+          </Pressable>
+        )}
+        {!loading && !error &&
+          featured.map((c) => (
+            <CreativeCard
+              key={c.id}
+              creative={c}
+              onPress={() => navigation.navigate('CreativeDetail', { creativeId: c.id })}
+            />
+          ))}
       </View>
     </ScrollView>
   );
@@ -143,6 +153,9 @@ const styles = StyleSheet.create({
   featuredHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seeAll: { color: colors.primary, fontWeight: '600', marginTop: spacing.xl, marginBottom: spacing.md, paddingRight: spacing.lg },
   list: { paddingHorizontal: spacing.lg },
+  error: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
+  errorText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
+  retry: { color: colors.primary, fontWeight: '700' },
 });
 
 export default HomeScreen;

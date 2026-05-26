@@ -10,8 +10,10 @@ import { colors } from '../theme';
 import HomeScreen from '../screens/HomeScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import AccountScreen from '../screens/AccountScreen';
 import CreativeDetailScreen from '../screens/CreativeDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
+import AuthScreen from '../screens/AuthScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -46,6 +48,7 @@ const Tabs: React.FC = () => (
           HomeTab: 'home',
           BrowseTab: 'search',
           FavoritesTab: 'heart',
+          AccountTab: 'person',
         };
         return <Ionicons name={icons[route.name] as any} size={size} color={color} />;
       },
@@ -54,6 +57,7 @@ const Tabs: React.FC = () => (
     <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
     <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
     <Tab.Screen name="FavoritesTab" component={FavoritesScreen} options={{ title: 'Favourites' }} />
+    <Tab.Screen name="AccountTab" component={AccountScreen} options={{ title: 'Account' }} />
   </Tab.Navigator>
 );
 
@@ -70,6 +74,11 @@ const RootNavigator: React.FC = () => (
       <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
       <Stack.Screen name="CreativeDetail" component={CreativeDetailScreen} options={{ title: '' }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: 'Request Booking' }} />
+      <Stack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ presentation: 'modal', title: 'Sign in' }}
+      />
     </Stack.Navigator>
   </NavigationContainer>
 );

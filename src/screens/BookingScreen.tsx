@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,8 +16,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { colors, radius, spacing } from '../theme';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 import { formatRand } from '../utils/format';
+import { CreativeDetail } from '../types';
 import { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -26,35 +29,80 @@ const BookingScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<BookingRoute>();
   const insets = useSafeAreaInsets();
-  const { creatives, addBooking } = useApp();
+  const { user, isAuthenticated } = useAuth();
 
-  const creative = creatives.find((c) => c.id === route.params.creativeId);
+  const { creativeId } = route.params;
+  const [creative, setCreative] = useState<CreativeDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(user?.name ?? '');
   const [date, setDate] = useState('');
   const [selectedService, setSelectedService] = useState<string | undefined>(route.params.serviceId);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+
+  useEffect(() => {
+    api.getCreative(creativeId)
+      .then(setCreative)
+      .catch(() => setCreative(null))
+      .finally(() => setLoading(false));
+  }, [creativeId]);
+
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="lock-closed-outline" size={44} color={colors.textMuted} />
+        <Text style={styles.gateTitle}>Sign in to book</Text>
+        <Text style={styles.gateText}>Create an account or log in to send a booking request.</Text>
+        <Pressable style={styles.doneButton} onPress={() => navigation.navigate('Auth')}>
+          <Text style={styles.doneButtonText}>Sign in</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!creative) {
     return (
-      <View style={styles.missing}>
-        <Text style={styles.missingText}>Creative not found.</Text>
+      <View style={styles.centered}>
+        <Text style={styles.gateText}>Creative not found.</Text>
       </View>
     );
   }
 
   const service = creative.services.find((s) => s.id === selectedService);
-  const canSubmit = name.trim() && date.trim() && selectedService;
+  const canSubmit = !!(name.trim() && date.trim() && selectedService) && !submitting;
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!canSubmit) return;
-    addBooking({ creativeId: creative.id, serviceId: selectedService!, date, name: name.trim() });
-    setConfirmed(true);
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await api.createBooking({
+        creativeId: creative.id,
+        serviceId: selectedService!,
+        date: date.trim(),
+        name: name.trim(),
+      });
+      setConfirmed(true);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Could not create booking');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (confirmed) {
     return (
-      <View style={styles.confirmWrap}>
+      <View style={styles.centered}>
         <View style={styles.checkCircle}>
           <Ionicons name="checkmark" size={48} color={colors.background} />
         </View>
@@ -63,8 +111,8 @@ const BookingScreen: React.FC = () => {
           {creative.name} will be in touch to confirm{' '}
           {service ? `"${service.title}"` : 'your booking'} on {date}.
         </Text>
-        <Pressable style={styles.doneButton} onPress={() => navigation.navigate('Tabs')}>
-          <Text style={styles.doneButtonText}>Back to home</Text>
+        <Pressable style={styles.doneButton} onPress={() => navigation.navigate('Tabs', { screen: 'AccountTab' })}>
+          <Text style={styles.doneButtonText}>View my bookings</Text>
         </Pressable>
       </View>
     );
@@ -93,9 +141,7 @@ const BookingScreen: React.FC = () => {
               style={[styles.serviceOption, active && styles.serviceOptionActive]}
               onPress={() => setSelectedService(s.id)}
             >
-              <View style={styles.radio}>
-                {active && <View style={styles.radioDot} />}
-              </View>
+              <View style={styles.radio}>{active && <View style={styles.radioDot} />}</View>
               <View style={styles.serviceOptionInfo}>
                 <Text style={styles.serviceOptionTitle}>{s.title}</Text>
                 <Text style={styles.serviceOptionDesc} numberOfLines={1}>{s.description}</Text>
@@ -130,12 +176,16 @@ const BookingScreen: React.FC = () => {
           </View>
         )}
 
+        {errorMsg && <Text style={styles.errorMsg}>{errorMsg}</Text>}
+
         <Pressable
           style={[styles.submit, !canSubmit && styles.submitDisabled]}
           onPress={confirm}
           disabled={!canSubmit}
         >
-          <Text style={styles.submitText}>Confirm booking request</Text>
+          <Text style={styles.submitText}>
+            {submitting ? 'Sending…' : 'Confirm booking request'}
+          </Text>
         </Pressable>
         <Text style={styles.disclaimer}>
           This sends a request to the creative. No payment is taken in this demo.
@@ -147,8 +197,12 @@ const BookingScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  missingText: { color: colors.textMuted },
+  centered: {
+    flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center',
+    padding: spacing.xl, gap: spacing.md,
+  },
+  gateTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  gateText: { color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
   creativeRow: { marginBottom: spacing.lg },
   creativeName: { color: colors.text, fontSize: 20, fontWeight: '800' },
   creativeCity: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
@@ -180,6 +234,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: { color: colors.textMuted, fontSize: 14 },
   summaryValue: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  errorMsg: { color: colors.danger, fontSize: 13, textAlign: 'center', marginTop: spacing.md },
   submit: {
     backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: spacing.lg,
     alignItems: 'center', marginTop: spacing.xl,
@@ -187,10 +242,6 @@ const styles = StyleSheet.create({
   submitDisabled: { opacity: 0.4 },
   submitText: { color: colors.background, fontWeight: '800', fontSize: 16 },
   disclaimer: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: spacing.md },
-  confirmWrap: {
-    flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center',
-    padding: spacing.xl, gap: spacing.md,
-  },
   checkCircle: {
     width: 96, height: 96, borderRadius: 48, backgroundColor: colors.success,
     alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,

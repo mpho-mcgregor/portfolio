@@ -1,8 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, radius } from '../theme';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { RootStackParamList } from '../navigation/types';
 
 interface Props {
   creativeId: string;
@@ -13,11 +17,21 @@ interface Props {
 
 const LikeButton: React.FC<Props> = ({ creativeId, likes, variant = 'pill' }) => {
   const { isLiked, toggleLike } = useApp();
+  const { isAuthenticated } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const liked = isLiked(creativeId);
+
+  const onPress = () => {
+    if (!isAuthenticated) {
+      navigation.navigate('Auth');
+      return;
+    }
+    toggleLike(creativeId).catch(() => {});
+  };
 
   return (
     <Pressable
-      onPress={() => toggleLike(creativeId)}
+      onPress={onPress}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={liked ? 'Unlike' : 'Like'}

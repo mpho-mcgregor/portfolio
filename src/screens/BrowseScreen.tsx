@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -27,7 +28,7 @@ const BrowseScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<BrowseRoute>();
   const insets = useSafeAreaInsets();
-  const { creatives } = useApp();
+  const { creatives, loading, error, refresh } = useApp();
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -124,10 +125,20 @@ const BrowseScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="sad-outline" size={40} color={colors.textMuted} />
-            <Text style={styles.emptyText}>No creatives match your filters yet.</Text>
-          </View>
+          loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />
+          ) : error ? (
+            <View style={styles.empty}>
+              <Ionicons name="cloud-offline-outline" size={40} color={colors.textMuted} />
+              <Text style={styles.emptyText}>{error}</Text>
+              <Text style={styles.retry} onPress={refresh}>Tap to retry</Text>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Ionicons name="sad-outline" size={40} color={colors.textMuted} />
+              <Text style={styles.emptyText}>No creatives match your filters yet.</Text>
+            </View>
+          )
         }
       />
     </View>
@@ -153,6 +164,7 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   empty: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xxl },
   emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
+  retry: { color: colors.primary, fontWeight: '700' },
 });
 
 export default BrowseScreen;

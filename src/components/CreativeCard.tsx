@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Creative } from '../types';
+import { CreativeSummary } from '../types';
 import { colors, radius, spacing } from '../theme';
 import { getCategory } from '../data/categories';
 import { formatRand } from '../utils/format';
@@ -9,7 +9,7 @@ import RatingStars from './RatingStars';
 import LikeButton from './LikeButton';
 
 interface Props {
-  creative: Creative;
+  creative: CreativeSummary;
   onPress: () => void;
 }
 

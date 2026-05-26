@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -10,13 +11,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { colors, radius, spacing } from '../theme';
 import { getCategory } from '../data/categories';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 import { formatRand } from '../utils/format';
+import { CreativeDetail } from '../types';
 import { RootStackParamList } from '../navigation/types';
 import RatingStars from '../components/RatingStars';
 import LikeButton from '../components/LikeButton';
@@ -29,32 +33,76 @@ const CreativeDetailScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<DetailRoute>();
   const insets = useSafeAreaInsets();
-  const { creatives, addReview } = useApp();
+  const { creatives } = useApp();
+  const { isAuthenticated } = useAuth();
 
-  const creative = creatives.find((c) => c.id === route.params.creativeId);
+  const { creativeId } = route.params;
+  const [creative, setCreative] = useState<CreativeDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [author, setAuthor] = useState('');
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5);
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!creative) {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setCreative(await api.getCreative(creativeId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  }, [creativeId]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  if (loading) {
     return (
-      <View style={styles.missing}>
-        <Text style={styles.missingText}>Creative not found.</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error || !creative) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={36} color={colors.textMuted} />
+        <Text style={styles.missingText}>{error || 'Creative not found.'}</Text>
+        <Text style={styles.retry} onPress={load}>Tap to retry</Text>
       </View>
     );
   }
 
   const category = getCategory(creative.categoryId);
+  const liveLikes = creatives.find((c) => c.id === creative.id)?.likes ?? creative.likes;
 
-  const submitReview = () => {
-    if (!author.trim() || !comment.trim()) return;
-    addReview(creative.id, { author: author.trim(), comment: comment.trim(), rating });
-    setAuthor('');
-    setComment('');
-    setRating(5);
-    setShowForm(false);
+  const onAddReviewPress = () => {
+    if (!isAuthenticated) {
+      navigation.navigate('Auth');
+      return;
+    }
+    setShowForm((s) => !s);
+  };
+
+  const submitReview = async () => {
+    if (!comment.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await api.addReview(creative.id, { rating, comment: comment.trim() });
+      setComment('');
+      setRating(5);
+      setShowForm(false);
+      await load();
+    } catch {
+      // Surface as a no-op; the form stays open so the user can retry.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -86,7 +134,7 @@ const CreativeDetailScreen: React.FC = () => {
               <RatingStars rating={creative.rating} size={16} />
               <Text style={styles.statLabel}>{creative.reviews.length} reviews</Text>
             </View>
-            <LikeButton creativeId={creative.id} likes={creative.likes} variant="full" />
+            <LikeButton creativeId={creative.id} likes={liveLikes} variant="full" />
           </View>
         </View>
 
@@ -119,20 +167,13 @@ const CreativeDetailScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.reviewHeader}>
             <Text style={styles.sectionTitle}>Reviews</Text>
-            <Pressable onPress={() => setShowForm((s) => !s)} hitSlop={8}>
+            <Pressable onPress={onAddReviewPress} hitSlop={8}>
               <Text style={styles.addReview}>{showForm ? 'Cancel' : '+ Add review'}</Text>
             </Pressable>
           </View>
 
           {showForm && (
             <View style={styles.form}>
-              <TextInput
-                value={author}
-                onChangeText={setAuthor}
-                placeholder="Your name"
-                placeholderTextColor={colors.textMuted}
-                style={styles.formInput}
-              />
               <TextInput
                 value={comment}
                 onChangeText={setComment}
@@ -153,11 +194,11 @@ const CreativeDetailScreen: React.FC = () => {
                 ))}
               </View>
               <Pressable
-                style={[styles.submit, (!author.trim() || !comment.trim()) && styles.submitDisabled]}
+                style={[styles.submit, (!comment.trim() || submitting) && styles.submitDisabled]}
                 onPress={submitReview}
-                disabled={!author.trim() || !comment.trim()}
+                disabled={!comment.trim() || submitting}
               >
-                <Text style={styles.submitText}>Post review</Text>
+                <Text style={styles.submitText}>{submitting ? 'Posting…' : 'Post review'}</Text>
               </Pressable>
             </View>
           )}
@@ -187,8 +228,9 @@ const CreativeDetailScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, gap: spacing.sm },
   missingText: { color: colors.textMuted },
+  retry: { color: colors.primary, fontWeight: '700' },
   hero: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   avatar: { width: 120, height: 120, borderRadius: 60, marginBottom: spacing.md, backgroundColor: colors.surfaceAlt },
   name: { color: colors.text, fontSize: 24, fontWeight: '800' },

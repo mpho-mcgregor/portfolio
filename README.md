@@ -5,8 +5,8 @@ place. Browse photographers, videographers, DJs, makeup artists, designers and
 more across all **9 provinces**, view their services and prices, like your
 favourites, read reviews, and request a booking.
 
-Built with **React Native + Expo** so the same codebase runs on **iOS, Android
-and the web**.
+Built with **React Native + Expo** (the same codebase runs on **iOS, Android and
+the web**) and a **Node + Express + SQLite** REST API backend.
 
 ## Features
 
@@ -20,44 +20,87 @@ and the web**.
   filters.
 - **Profiles with pricing** – each creative lists their services and prices in
   Rand (ZAR).
-- **Likes** – tap the heart to like a creative; saved to your Favourites tab.
-- **Reviews** – read ratings and reviews, and add your own.
-- **Booking flow** – pick a service, choose a date, and send a booking request.
+- **User accounts** – sign up / log in with email and password (JWT auth).
+- **Likes** – tap the heart to like a creative; saved per-user to your
+  Favourites tab.
+- **Reviews** – read ratings and reviews, and add your own (signed in).
+- **Bookings** – pick a service, choose a date, send a request, and see all your
+  bookings on the Account tab.
 - **Responsive layout** – adapts to phones, tablets and the web (responsive
   category grid, safe-area handling, keyboard-aware forms).
 
 ## Project structure
 
 ```
-App.tsx                  App entry (providers + navigation)
+App.tsx                    App entry (providers + navigation)
 src/
-  data/                  Sample data: provinces, categories, creatives
-  context/AppContext.tsx App state: likes, reviews, bookings
-  navigation/            Bottom tabs + stack navigation
-  screens/               Home, Browse, Favourites, Detail, Booking
-  components/            Reusable UI (cards, chips, stars, like button)
-  theme.ts               Colours, spacing, radii
+  api/client.ts            Typed REST client for the backend
+  context/AuthContext.tsx  Auth state (login/register/logout, token storage)
+  context/AppContext.tsx   Creatives list + likes, backed by the API
+  data/                    Static reference data (provinces, categories)
+  navigation/              Bottom tabs + stack navigation
+  screens/                 Home, Browse, Favourites, Account, Detail, Booking, Auth
+  components/              Reusable UI (cards, chips, stars, like button)
+  theme.ts                 Colours, spacing, radii
+
+server/                    Node + Express + SQLite REST API
+  src/index.js             API entry / route wiring
+  src/db.js                SQLite connection + schema
+  src/seed.js + seedData.js  Sample data seeding
+  src/auth.js              JWT signing + auth middleware
+  src/routes/              auth, creatives (+likes/reviews), bookings
 ```
 
 ## Getting started
 
-You need [Node.js](https://nodejs.org/) (18+) installed.
+You need [Node.js](https://nodejs.org/) (18+) installed. You'll run **two**
+processes: the backend API and the Expo app.
+
+### 1. Start the backend
 
 ```bash
-# 1. Install dependencies
+cd server
 npm install
+npm start          # API runs on http://localhost:4000 and seeds sample data
+```
 
-# 2. Start the Expo dev server
+### 2. Start the app (in a second terminal)
+
+```bash
+npm install        # from the project root
 npm start
 ```
 
-Then open the app in any of these ways:
+Then open the app:
 
 - **On your phone:** install the **Expo Go** app (iOS App Store / Google Play),
-  then scan the QR code shown in the terminal.
-- **Android emulator:** press `a` in the terminal (or run `npm run android`).
-- **iOS simulator (macOS):** press `i` (or run `npm run ios`).
-- **Web browser:** press `w` (or run `npm run web`).
+  then scan the QR code shown in the terminal. A phone can't reach
+  `localhost` on your computer, so point it at your computer's LAN IP:
+  ```bash
+  EXPO_PUBLIC_API_URL=http://192.168.0.10:4000 npm start
+  ```
+  (replace `192.168.0.10` with your machine's IP on the same Wi-Fi).
+- **Android emulator:** press `a` (or `npm run android`).
+- **iOS simulator (macOS):** press `i` (or `npm run ios`).
+- **Web browser:** press `w` (or `npm run web`). `localhost` works here.
 
-> The sample data lives in `src/data/`. Replace it with calls to a real backend
-> to take the app to production.
+## API overview
+
+| Method | Endpoint                       | Auth | Description                       |
+| ------ | ------------------------------ | ---- | --------------------------------- |
+| GET    | `/api/categories`              | –    | List categories                  |
+| GET    | `/api/provinces`               | –    | List provinces                   |
+| GET    | `/api/creatives`               | –    | List creatives (`?category=&province=&q=`) |
+| GET    | `/api/creatives/:id`           | –    | Full profile + services + reviews |
+| POST   | `/api/creatives/:id/like`      | ✓    | Toggle like                       |
+| POST   | `/api/creatives/:id/reviews`   | ✓    | Add a review                      |
+| POST   | `/api/auth/register`           | –    | Create account, returns JWT       |
+| POST   | `/api/auth/login`              | –    | Log in, returns JWT               |
+| GET    | `/api/auth/me`                 | ✓    | Current user                      |
+| GET    | `/api/auth/likes`              | ✓    | IDs the user has liked            |
+| GET    | `/api/bookings`                | ✓    | Current user's bookings           |
+| POST   | `/api/bookings`                | ✓    | Create a booking request          |
+
+Data is stored in a local SQLite file (`server/data.db`), created and seeded
+automatically on first run. Set `JWT_SECRET` and `PORT` env vars to configure
+the server in production.
