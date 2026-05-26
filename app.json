@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "CreativeConnect SA",
+    "slug": "creativeconnect-sa",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "creativeconnect",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1A1626"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "za.co.creativeconnect.app"
+    },
+    "android": {
+      "package": "za.co.creativeconnect.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
