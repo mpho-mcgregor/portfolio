@@ -20,5 +20,7 @@ export type RootStackParamList = {
     date: string;
     name: string;
   };
+  Dashboard: undefined;
+  BecomeCreative: undefined;
   Auth: undefined;
 };

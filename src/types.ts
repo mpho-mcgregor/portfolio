@@ -61,12 +61,14 @@ export interface User {
   email: string;
 }
 
+export type BookingStatus = 'pending' | 'paid' | 'confirmed';
+
 export interface Booking {
   id: string;
   date: string;
   name: string;
   amount: number;
-  status: 'paid' | 'pending';
+  status: BookingStatus;
   reference: string;
   creativeId: string;
   creativeName: string;
@@ -75,4 +77,33 @@ export interface Booking {
   serviceId: string;
   serviceTitle: string;
   servicePrice: number;
+}
+
+/** A creative's view of a booking made for them (the dashboard). */
+export interface OwnerBooking {
+  id: string;
+  date: string;
+  name: string;
+  amount: number;
+  status: BookingStatus;
+  reference: string;
+  serviceTitle: string;
+  createdAt: string;
+}
+
+/** The signed-in user's own creative profile, with dashboard stats. */
+export interface OwnerProfile extends CreativeDetail {
+  bookingCount: number;
+  revenue: number;
+  awaitingConfirmation: number;
+}
+
+export interface NewCreativeInput {
+  name: string;
+  tagline: string;
+  categoryId: string;
+  province: string;
+  city: string;
+  bio: string;
+  services: { title: string; description: string; price: number }[];
 }

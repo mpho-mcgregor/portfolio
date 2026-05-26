@@ -3,6 +3,9 @@ import {
   Category,
   CreativeDetail,
   CreativeSummary,
+  NewCreativeInput,
+  OwnerBooking,
+  OwnerProfile,
   Province,
   Review,
   User,
@@ -85,6 +88,22 @@ export const api = {
     }),
   me: () => request<{ user: User }>('/api/auth/me'),
   getLikedIds: () => request<{ likedIds: string[] }>('/api/auth/likes'),
+  setPushToken: (token: string | null) =>
+    request<{ ok: boolean }>('/api/auth/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  // Creative dashboard (current user's own profile)
+  getMyCreative: () => request<OwnerProfile>('/api/me/creative'),
+  createMyCreative: (data: NewCreativeInput) =>
+    request<{ id: string }>('/api/me/creative', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getMyCreativeBookings: () => request<OwnerBooking[]>('/api/me/creative/bookings'),
+  confirmBooking: (id: string) =>
+    request<{ id: string; status: string }>(`/api/bookings/${id}/confirm`, { method: 'POST' }),
 
   // Bookings
   getBookings: () => request<Booking[]>('/api/bookings'),

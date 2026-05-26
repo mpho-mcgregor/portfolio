@@ -27,6 +27,12 @@ the web**) and a **Node + Express + SQLite** REST API backend.
 - **Bookings & mock checkout** – pick a service, choose a date, then pay through
   a simulated card checkout (no real charge). Paid bookings, amounts and a
   reference number appear on the Account tab.
+- **Creative dashboard** – any user can create their own creative profile
+  (two-sided marketplace) and get a dashboard with stats (bookings, revenue,
+  rating, likes) and a list of incoming bookings they can **confirm**.
+- **Push notifications** – the client gets a confirmation notification on
+  checkout, the creative is pushed when a new booking arrives, and the client is
+  pushed again when the creative confirms (Expo push + local notifications).
 - **Responsive layout** – adapts to phones, tablets and the web (responsive
   category grid, safe-area handling, keyboard-aware forms).
 
@@ -38,9 +44,11 @@ src/
   api/client.ts            Typed REST client for the backend
   context/AuthContext.tsx  Auth state (login/register/logout, token storage)
   context/AppContext.tsx   Creatives list + likes, backed by the API
+  notifications.ts         Push registration + local notification helpers
   data/                    Static reference data (provinces, categories)
   navigation/              Bottom tabs + stack navigation
-  screens/                 Home, Browse, Favourites, Account, Detail, Booking, Checkout, Auth
+  screens/                 Home, Browse, Favourites, Account, Detail, Booking,
+                           Checkout, Dashboard, BecomeCreative, Auth
   components/              Reusable UI (cards, chips, stars, like button)
   theme.ts                 Colours, spacing, radii
 
@@ -49,7 +57,8 @@ server/                    Node + Express + SQLite REST API
   src/db.js                SQLite connection + schema
   src/seed.js + seedData.js  Sample data seeding
   src/auth.js              JWT signing + auth middleware
-  src/routes/              auth, creatives (+likes/reviews), bookings
+  src/push.js              Best-effort Expo push sending
+  src/routes/              auth, creatives (+likes/reviews), bookings, me (dashboard)
 ```
 
 ## Getting started
@@ -99,9 +108,23 @@ Then open the app:
 | POST   | `/api/auth/login`              | –    | Log in, returns JWT               |
 | GET    | `/api/auth/me`                 | ✓    | Current user                      |
 | GET    | `/api/auth/likes`              | ✓    | IDs the user has liked            |
+| POST   | `/api/auth/push-token`         | ✓    | Register device push token        |
 | GET    | `/api/bookings`                | ✓    | Current user's bookings           |
 | POST   | `/api/bookings`                | ✓    | Create a booking request          |
+| POST   | `/api/bookings/:id/confirm`    | ✓    | Creative confirms a booking       |
+| GET    | `/api/me/creative`             | ✓    | Own creative profile + stats      |
+| POST   | `/api/me/creative`             | ✓    | Create own creative profile       |
+| GET    | `/api/me/creative/bookings`    | ✓    | Bookings for own profile          |
 
 Data is stored in a local SQLite file (`server/data.db`), created and seeded
 automatically on first run. Set `JWT_SECRET` and `PORT` env vars to configure
 the server in production.
+
+## Push notifications
+
+Notifications use [Expo Notifications](https://docs.expo.dev/push-notifications/overview/).
+The in-app confirmation on checkout is a **local** notification and works in
+Expo Go on a physical device. **Remote** push (new-booking alerts to the
+creative, confirmation alerts back to the client) requires a real device and an
+EAS `projectId`; on simulators/web no token is issued and push sends are
+skipped gracefully. Build a dev/EAS build and the wiring works end to end.

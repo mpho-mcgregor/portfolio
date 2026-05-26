@@ -17,6 +17,7 @@ export function initSchema() {
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
+      push_token TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -28,6 +29,7 @@ export function initSchema() {
 
     CREATE TABLE IF NOT EXISTS creatives (
       id TEXT PRIMARY KEY,
+      owner_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       tagline TEXT NOT NULL,
       category_id TEXT NOT NULL REFERENCES categories(id),

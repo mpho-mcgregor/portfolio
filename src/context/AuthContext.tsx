@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, setAuthToken } from '../api/client';
+import { registerForPushNotifications } from '../notifications';
 import { User } from '../types';
 
 const TOKEN_KEY = 'cc.token';
@@ -29,6 +30,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setAuthToken(token);
           const { user } = await api.me();
           setUser(user);
+          registerForPushNotifications().then((t) => {
+            if (t) api.setPushToken(t).catch(() => {});
+          });
         }
       } catch {
         await AsyncStorage.removeItem(TOKEN_KEY);
@@ -39,11 +43,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, []);
 
+  // Register this device's push token with the backend (best-effort).
+  const syncPushToken = useCallback(async () => {
+    const token = await registerForPushNotifications();
+    if (token) await api.setPushToken(token).catch(() => {});
+  }, []);
+
   const persist = useCallback(async (token: string, user: User) => {
     setAuthToken(token);
     await AsyncStorage.setItem(TOKEN_KEY, token);
     setUser(user);
-  }, []);
+    syncPushToken();
+  }, [syncPushToken]);
 
   const login = useCallback(async (email: string, password: string) => {
     const { token, user } = await api.login({ email, password });
@@ -56,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [persist]);
 
   const logout = useCallback(async () => {
+    await api.setPushToken(null).catch(() => {});
     setAuthToken(null);
     await AsyncStorage.removeItem(TOKEN_KEY);
     setUser(null);

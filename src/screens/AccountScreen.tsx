@@ -28,11 +28,14 @@ const AccountScreen: React.FC = () => {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasCreative, setHasCreative] = useState(false);
+  const [awaiting, setAwaiting] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       if (!isAuthenticated) {
         setBookings([]);
+        setHasCreative(false);
         return;
       }
       setLoading(true);
@@ -40,6 +43,9 @@ const AccountScreen: React.FC = () => {
         .then(setBookings)
         .catch(() => setBookings([]))
         .finally(() => setLoading(false));
+      api.getMyCreative()
+        .then((c) => { setHasCreative(true); setAwaiting(c.awaitingConfirmation); })
+        .catch(() => setHasCreative(false));
     }, [isAuthenticated])
   );
 
@@ -74,6 +80,31 @@ const AccountScreen: React.FC = () => {
         </Pressable>
       </View>
 
+      <Pressable
+        style={styles.creativeCta}
+        onPress={() => navigation.navigate(hasCreative ? 'Dashboard' : 'BecomeCreative')}
+      >
+        <View style={styles.creativeCtaIcon}>
+          <Ionicons name={hasCreative ? 'grid' : 'add-circle'} size={20} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.creativeCtaTitle}>
+            {hasCreative ? 'Creative dashboard' : 'Become a creative'}
+          </Text>
+          <Text style={styles.creativeCtaSub}>
+            {hasCreative
+              ? 'Manage your bookings and profile'
+              : 'List your services and get hired'}
+          </Text>
+        </View>
+        {hasCreative && awaiting > 0 && (
+          <View style={styles.ctaBadge}>
+            <Text style={styles.ctaBadgeText}>{awaiting}</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+
       <Text style={styles.sectionTitle}>My bookings</Text>
 
       <FlatList
@@ -96,12 +127,17 @@ const AccountScreen: React.FC = () => {
             </View>
             <View style={styles.bookingRight}>
               <Text style={styles.bookingPrice}>{formatRand(item.amount)}</Text>
-              {item.status === 'paid' && (
+              {item.status === 'confirmed' ? (
                 <View style={styles.paidBadge}>
-                  <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-                  <Text style={styles.paidText}>Paid</Text>
+                  <Ionicons name="checkmark-done-circle" size={12} color={colors.success} />
+                  <Text style={styles.paidText}>Confirmed</Text>
                 </View>
-              )}
+              ) : item.status === 'paid' ? (
+                <View style={styles.paidBadge}>
+                  <Ionicons name="time" size={12} color={colors.star} />
+                  <Text style={[styles.paidText, { color: colors.star }]}>Pending</Text>
+                </View>
+              ) : null}
             </View>
           </Pressable>
         )}
@@ -146,6 +182,23 @@ const styles = StyleSheet.create({
   email: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   logout: { alignItems: 'center', gap: 2 },
   logoutText: { color: colors.danger, fontSize: 11, fontWeight: '700' },
+  creativeCta: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    marginHorizontal: spacing.lg, marginBottom: spacing.xl,
+    backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  creativeCtaIcon: {
+    width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  creativeCtaTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  creativeCtaSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  ctaBadge: {
+    minWidth: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
+  },
+  ctaBadgeText: { color: colors.background, fontSize: 12, fontWeight: '800' },
   sectionTitle: {
     color: colors.text, fontSize: 18, fontWeight: '700',
     paddingHorizontal: spacing.lg, marginBottom: spacing.md,

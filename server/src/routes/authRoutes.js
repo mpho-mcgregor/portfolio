@@ -63,3 +63,10 @@ authRouter.get('/likes', requireAuth, (req, res) => {
   const rows = db.prepare('SELECT creative_id FROM likes WHERE user_id = ?').all(req.userId);
   res.json({ likedIds: rows.map((r) => r.creative_id) });
 });
+
+// POST /api/auth/push-token — register/clear the device's Expo push token
+authRouter.post('/push-token', requireAuth, (req, res) => {
+  const token = req.body.token ? String(req.body.token) : null;
+  db.prepare('UPDATE users SET push_token = ? WHERE id = ?').run(token, req.userId);
+  res.json({ ok: true });
+});

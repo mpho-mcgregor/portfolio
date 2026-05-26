@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { colors, radius, spacing } from '../theme';
 import { api } from '../api/client';
+import { notifyLocal } from '../notifications';
 import { formatRand } from '../utils/format';
 import { RootStackParamList } from '../navigation/types';
 
@@ -75,6 +76,10 @@ const CheckoutScreen: React.FC = () => {
         paid: true,
       });
       setReference(booking.reference);
+      notifyLocal(
+        'Booking confirmed 🎉',
+        `Your booking with ${params.creativeName} for ${params.date} is in. Ref ${booking.reference}.`
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Payment could not be completed');
     } finally {
