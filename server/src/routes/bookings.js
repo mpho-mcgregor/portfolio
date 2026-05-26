@@ -2,12 +2,21 @@ import express from 'express';
 import { randomUUID } from 'crypto';
 import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
-import { notifyUser } from '../push.js';
+import { notify } from '../notify.js';
 
 export const bookingsRouter = express.Router();
 
 const makeReference = () =>
   `CC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+const fetchBooking = (id) =>
+  db
+    .prepare(
+      `SELECT b.*, c.owner_user_id AS ownerId, c.name AS creativeName
+       FROM bookings b JOIN creatives c ON c.id = b.creative_id
+       WHERE b.id = ?`
+    )
+    .get(id);
 
 // GET /api/bookings — current user's bookings (as a client)
 bookingsRouter.get('/', requireAuth, (req, res) => {
@@ -60,17 +69,16 @@ bookingsRouter.post('/', requireAuth, (req, res) => {
      VALUES (@id, @user_id, @creative_id, @service_id, @name, @date, @amount, @status, @reference, @created_at)`
   ).run(booking);
 
-  // Notify the creative's owner that a new booking has come in.
   const creative = db
     .prepare('SELECT name, owner_user_id FROM creatives WHERE id = ?')
     .get(creativeId);
   if (creative?.owner_user_id) {
-    notifyUser(
-      creative.owner_user_id,
-      'New booking received 🎉',
-      `${name} booked you for ${date}.`,
-      { type: 'new_booking', bookingId: booking.id }
-    );
+    notify(creative.owner_user_id, {
+      type: 'new_booking',
+      title: 'New booking received 🎉',
+      body: `${name} booked you for ${date}.`,
+      data: { bookingId: booking.id, creativeId },
+    });
   }
 
   res.status(201).json({
@@ -83,30 +91,76 @@ bookingsRouter.post('/', requireAuth, (req, res) => {
   });
 });
 
-// POST /api/bookings/:id/confirm — creative confirms a booking made for them
-bookingsRouter.post('/:id/confirm', requireAuth, (req, res) => {
-  const booking = db
-    .prepare(
-      `SELECT b.*, c.owner_user_id AS ownerId, c.name AS creativeName
-       FROM bookings b JOIN creatives c ON c.id = b.creative_id
-       WHERE b.id = ?`
-    )
-    .get(req.params.id);
-
+/** Shared handler for owner-driven status changes (confirm/decline/complete). */
+const ownerTransition = (from, to, notifyType, makeMessage) => (req, res) => {
+  const booking = fetchBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.ownerId !== req.userId) {
-    return res.status(403).json({ error: 'You can only confirm bookings for your own profile' });
+    return res.status(403).json({ error: 'You can only manage bookings for your own profile' });
+  }
+  if (!from.includes(booking.status)) {
+    return res.status(409).json({ error: `Cannot ${to} a booking that is ${booking.status}` });
   }
 
-  db.prepare("UPDATE bookings SET status = 'confirmed' WHERE id = ?").run(booking.id);
+  db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(to, booking.id);
+  notify(booking.user_id, {
+    type: notifyType,
+    title: makeMessage(booking).title,
+    body: makeMessage(booking).body,
+    data: { bookingId: booking.id, creativeId: booking.creative_id },
+  });
+  res.json({ id: booking.id, status: to });
+};
 
-  // Notify the client that their booking is confirmed.
-  notifyUser(
-    booking.user_id,
-    'Booking confirmed ✅',
-    `${booking.creativeName} confirmed your booking for ${booking.date}.`,
-    { type: 'booking_confirmed', bookingId: booking.id }
-  );
+// POST /api/bookings/:id/confirm — creative confirms a paid booking
+bookingsRouter.post(
+  '/:id/confirm',
+  requireAuth,
+  ownerTransition(['paid'], 'confirmed', 'booking_confirmed', (b) => ({
+    title: 'Booking confirmed ✅',
+    body: `${b.creativeName} confirmed your booking for ${b.date}.`,
+  }))
+);
 
-  res.json({ id: booking.id, status: 'confirmed' });
+// POST /api/bookings/:id/decline — creative declines a paid booking
+bookingsRouter.post(
+  '/:id/decline',
+  requireAuth,
+  ownerTransition(['paid'], 'declined', 'booking_declined', (b) => ({
+    title: 'Booking declined',
+    body: `${b.creativeName} can't take your booking for ${b.date}. A refund would follow in production.`,
+  }))
+);
+
+// POST /api/bookings/:id/complete — creative marks a confirmed booking complete
+bookingsRouter.post(
+  '/:id/complete',
+  requireAuth,
+  ownerTransition(['confirmed'], 'completed', 'booking_completed', (b) => ({
+    title: 'Booking completed 🎬',
+    body: `${b.creativeName} marked your booking as complete. Leave a review!`,
+  }))
+);
+
+// POST /api/bookings/:id/cancel — client cancels their own booking
+bookingsRouter.post('/:id/cancel', requireAuth, (req, res) => {
+  const booking = fetchBooking(req.params.id);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.user_id !== req.userId) {
+    return res.status(403).json({ error: 'You can only cancel your own bookings' });
+  }
+  if (!['paid', 'confirmed'].includes(booking.status)) {
+    return res.status(409).json({ error: `Cannot cancel a booking that is ${booking.status}` });
+  }
+
+  db.prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?").run(booking.id);
+  if (booking.ownerId) {
+    notify(booking.ownerId, {
+      type: 'booking_cancelled',
+      title: 'Booking cancelled',
+      body: `${booking.name} cancelled their booking for ${booking.date}.`,
+      data: { bookingId: booking.id, creativeId: booking.creative_id },
+    });
+  }
+  res.json({ id: booking.id, status: 'cancelled' });
 });

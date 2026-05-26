@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import { api } from '../api/client';
 import { formatRand } from '../utils/format';
 import { Booking } from '../types';
 import { RootStackParamList } from '../navigation/types';
+import StatusBadge from '../components/StatusBadge';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,6 +32,32 @@ const AccountScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasCreative, setHasCreative] = useState(false);
   const [awaiting, setAwaiting] = useState(0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const reloadBookings = useCallback(() => {
+    api.getBookings().then(setBookings).catch(() => {});
+  }, []);
+
+  const cancelBooking = useCallback((id: string) => {
+    Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Cancel booking',
+        style: 'destructive',
+        onPress: async () => {
+          setCancellingId(id);
+          try {
+            await api.cancelBooking(id);
+            reloadBookings();
+          } catch (e) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Could not cancel');
+          } finally {
+            setCancellingId(null);
+          }
+        },
+      },
+    ]);
+  }, [reloadBookings]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,35 +139,36 @@ const AccountScreen: React.FC = () => {
         data={bookings}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Pressable
-            style={styles.booking}
-            onPress={() => navigation.navigate('CreativeDetail', { creativeId: item.creativeId })}
-          >
-            <View style={styles.bookingIcon}>
-              <Ionicons name="calendar" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.bookingInfo}>
-              <Text style={styles.bookingTitle}>{item.serviceTitle}</Text>
-              <Text style={styles.bookingMeta}>
-                {item.creativeName} · {item.city}
-              </Text>
-              <Text style={styles.bookingDate}>{item.date}</Text>
-            </View>
-            <View style={styles.bookingRight}>
+          <View style={styles.booking}>
+            <Pressable
+              style={styles.bookingMain}
+              onPress={() => navigation.navigate('CreativeDetail', { creativeId: item.creativeId })}
+            >
+              <View style={styles.bookingIcon}>
+                <Ionicons name="calendar" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.bookingInfo}>
+                <Text style={styles.bookingTitle}>{item.serviceTitle}</Text>
+                <Text style={styles.bookingMeta}>{item.creativeName} · {item.city}</Text>
+                <Text style={styles.bookingDate}>{item.date}</Text>
+              </View>
               <Text style={styles.bookingPrice}>{formatRand(item.amount)}</Text>
-              {item.status === 'confirmed' ? (
-                <View style={styles.paidBadge}>
-                  <Ionicons name="checkmark-done-circle" size={12} color={colors.success} />
-                  <Text style={styles.paidText}>Confirmed</Text>
-                </View>
-              ) : item.status === 'paid' ? (
-                <View style={styles.paidBadge}>
-                  <Ionicons name="time" size={12} color={colors.star} />
-                  <Text style={[styles.paidText, { color: colors.star }]}>Pending</Text>
-                </View>
-              ) : null}
+            </Pressable>
+            <View style={styles.bookingFooter}>
+              <StatusBadge status={item.status} />
+              {(item.status === 'paid' || item.status === 'confirmed') && (
+                <Pressable
+                  onPress={() => cancelBooking(item.id)}
+                  hitSlop={8}
+                  disabled={cancellingId === item.id}
+                >
+                  <Text style={styles.cancelText}>
+                    {cancellingId === item.id ? 'Cancelling…' : 'Cancel'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
-          </Pressable>
+          </View>
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -205,10 +234,10 @@ const styles = StyleSheet.create({
   },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1 },
   booking: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md,
     marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,
   },
+  bookingMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bookingIcon: {
     width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
@@ -217,10 +246,12 @@ const styles = StyleSheet.create({
   bookingTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   bookingMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   bookingDate: { color: colors.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  bookingRight: { alignItems: 'flex-end', gap: 4 },
   bookingPrice: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  paidBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  paidText: { color: colors.success, fontSize: 11, fontWeight: '700' },
+  bookingFooter: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  cancelText: { color: colors.danger, fontSize: 13, fontWeight: '700' },
   emptyBookings: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xxl },
 });
 

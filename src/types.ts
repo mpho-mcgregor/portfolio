@@ -61,7 +61,23 @@ export interface User {
   email: string;
 }
 
-export type BookingStatus = 'pending' | 'paid' | 'confirmed';
+export type BookingStatus =
+  | 'pending'
+  | 'paid'
+  | 'confirmed'
+  | 'declined'
+  | 'cancelled'
+  | 'completed';
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: { bookingId?: string; creativeId?: string };
+  read: boolean;
+  createdAt: string;
+}
 
 export interface Booking {
   id: string;

@@ -2,6 +2,7 @@ import express from 'express';
 import { randomUUID } from 'crypto';
 import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
+import { notify } from '../notify.js';
 
 export const creativesRouter = express.Router();
 
@@ -77,7 +78,9 @@ creativesRouter.get('/:id', (req, res) => {
 
 // POST /api/creatives/:id/reviews   (auth)
 creativesRouter.post('/:id/reviews', requireAuth, (req, res) => {
-  const creative = db.prepare('SELECT id FROM creatives WHERE id = ?').get(req.params.id);
+  const creative = db
+    .prepare('SELECT id, name, owner_user_id FROM creatives WHERE id = ?')
+    .get(req.params.id);
   if (!creative) return res.status(404).json({ error: 'Creative not found' });
 
   const rating = Number(req.body.rating);
@@ -101,6 +104,16 @@ creativesRouter.post('/:id/reviews', requireAuth, (req, res) => {
     `INSERT INTO reviews (id, creative_id, user_id, author, rating, comment, date)
      VALUES (@id, @creative_id, @user_id, @author, @rating, @comment, @date)`
   ).run(review);
+
+  // Don't notify the creative about reviewing themselves.
+  if (creative.owner_user_id && creative.owner_user_id !== req.userId) {
+    notify(creative.owner_user_id, {
+      type: 'new_review',
+      title: 'New review ⭐',
+      body: `${review.author} rated you ${rating}/5.`,
+      data: { creativeId: creative.id },
+    });
+  }
 
   res.status(201).json({
     id: review.id,

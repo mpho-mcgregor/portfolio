@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
@@ -18,6 +18,8 @@ import { colors, radius, spacing } from '../theme';
 import { CATEGORIES } from '../data/categories';
 import { PROVINCES } from '../data/provinces';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 import { RootStackParamList, TabParamList } from '../navigation/types';
 import CreativeCard from '../components/CreativeCard';
 import FilterChip from '../components/FilterChip';
@@ -30,6 +32,18 @@ const HomeScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { creatives, loading, error, refresh } = useApp();
+  const { isAuthenticated } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated) {
+        setUnread(0);
+        return;
+      }
+      api.getUnreadCount().then((r) => setUnread(r.count)).catch(() => setUnread(0));
+    }, [isAuthenticated])
+  );
 
   // Responsive grid: aim for ~110px tiles, clamped between 3 and 5 columns.
   const numColumns = Math.min(5, Math.max(3, Math.floor(width / 110)));
@@ -50,11 +64,23 @@ const HomeScreen: React.FC = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Sawubona 👋</Text>
           <Text style={styles.title}>Find SA's best creatives</Text>
         </View>
-        <Ionicons name="color-palette" size={32} color={colors.primary} />
+        <Pressable
+          style={styles.bell}
+          onPress={() => navigation.navigate(isAuthenticated ? 'Notifications' : 'Auth')}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+        >
+          <Ionicons name="notifications-outline" size={24} color={colors.text} />
+          {unread > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
       <Pressable style={styles.searchBar} onPress={() => navigation.navigate('BrowseTab')}>
@@ -127,6 +153,16 @@ const styles = StyleSheet.create({
   },
   greeting: { color: colors.textMuted, fontSize: 14 },
   title: { color: colors.text, fontSize: 24, fontWeight: '800', marginTop: 2 },
+  bell: {
+    width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    borderWidth: 2, borderColor: colors.background,
+  },
+  badgeText: { color: colors.text, fontSize: 10, fontWeight: '800' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     marginHorizontal: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,

@@ -16,7 +16,7 @@ const statsFor = (creativeId) => {
   const bookings = db
     .prepare(
       `SELECT COUNT(*) AS n,
-              COALESCE(SUM(amount), 0) AS revenue,
+              COALESCE(SUM(CASE WHEN status IN ('paid','confirmed','completed') THEN amount ELSE 0 END), 0) AS revenue,
               SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS awaiting
        FROM bookings WHERE creative_id = ?`
     )
@@ -111,6 +111,103 @@ meRouter.post('/creative', requireAuth, (req, res) => {
   create();
 
   res.status(201).json({ id: creativeId });
+});
+
+const recomputeStartingPrice = (creativeId) => {
+  const row = db
+    .prepare('SELECT MIN(price) AS min FROM services WHERE creative_id = ?')
+    .get(creativeId);
+  if (row.min != null) {
+    db.prepare('UPDATE creatives SET starting_price = ? WHERE id = ?').run(row.min, creativeId);
+  }
+};
+
+// PUT /api/me/creative — update the current user's profile fields
+meRouter.put('/creative', requireAuth, (req, res) => {
+  const c = ownedCreative(req.userId);
+  if (!c) return res.status(404).json({ error: 'No creative profile yet' });
+
+  const name = String(req.body.name || '').trim();
+  const tagline = String(req.body.tagline || '').trim();
+  const categoryId = String(req.body.categoryId || '');
+  const province = String(req.body.province || '').trim();
+  const city = String(req.body.city || '').trim();
+  const bio = String(req.body.bio || '').trim();
+
+  if (!name || !tagline || !categoryId || !province || !city || !bio) {
+    return res.status(400).json({ error: 'All profile fields are required' });
+  }
+  if (!db.prepare('SELECT 1 FROM categories WHERE id = ?').get(categoryId)) {
+    return res.status(400).json({ error: 'Unknown category' });
+  }
+
+  db.prepare(
+    `UPDATE creatives SET name = ?, tagline = ?, category_id = ?, province = ?, city = ?, bio = ?
+     WHERE id = ?`
+  ).run(name, tagline, categoryId, province, city, bio, c.id);
+  res.json({ id: c.id });
+});
+
+// POST /api/me/creative/services — add a service
+meRouter.post('/creative/services', requireAuth, (req, res) => {
+  const c = ownedCreative(req.userId);
+  if (!c) return res.status(404).json({ error: 'No creative profile yet' });
+
+  const title = String(req.body.title || '').trim();
+  const description = String(req.body.description || '').trim();
+  const price = Number(req.body.price);
+  if (!title || !description || !Number.isFinite(price) || price <= 0) {
+    return res.status(400).json({ error: 'Title, description and a positive price are required' });
+  }
+
+  const id = randomUUID();
+  db.prepare(
+    'INSERT INTO services (id, creative_id, title, description, price) VALUES (?, ?, ?, ?, ?)'
+  ).run(id, c.id, title, description, price);
+  recomputeStartingPrice(c.id);
+  res.status(201).json({ id, title, description, price });
+});
+
+// PUT /api/me/creative/services/:id — edit a service
+meRouter.put('/creative/services/:id', requireAuth, (req, res) => {
+  const c = ownedCreative(req.userId);
+  if (!c) return res.status(404).json({ error: 'No creative profile yet' });
+  const service = db
+    .prepare('SELECT id FROM services WHERE id = ? AND creative_id = ?')
+    .get(req.params.id, c.id);
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+
+  const title = String(req.body.title || '').trim();
+  const description = String(req.body.description || '').trim();
+  const price = Number(req.body.price);
+  if (!title || !description || !Number.isFinite(price) || price <= 0) {
+    return res.status(400).json({ error: 'Title, description and a positive price are required' });
+  }
+
+  db.prepare('UPDATE services SET title = ?, description = ?, price = ? WHERE id = ?')
+    .run(title, description, price, req.params.id);
+  recomputeStartingPrice(c.id);
+  res.json({ id: req.params.id, title, description, price });
+});
+
+// DELETE /api/me/creative/services/:id — remove a service (keeps at least one)
+meRouter.delete('/creative/services/:id', requireAuth, (req, res) => {
+  const c = ownedCreative(req.userId);
+  if (!c) return res.status(404).json({ error: 'No creative profile yet' });
+  const service = db
+    .prepare('SELECT id FROM services WHERE id = ? AND creative_id = ?')
+    .get(req.params.id, c.id);
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+
+  const count = db.prepare('SELECT COUNT(*) AS n FROM services WHERE creative_id = ?').get(c.id).n;
+  if (count <= 1) return res.status(409).json({ error: 'You must keep at least one service' });
+
+  const booked = db.prepare('SELECT 1 FROM bookings WHERE service_id = ?').get(req.params.id);
+  if (booked) return res.status(409).json({ error: 'Cannot remove a service that has bookings' });
+
+  db.prepare('DELETE FROM services WHERE id = ?').run(req.params.id);
+  recomputeStartingPrice(c.id);
+  res.json({ ok: true });
 });
 
 // GET /api/me/creative/bookings — bookings made for the owned profile

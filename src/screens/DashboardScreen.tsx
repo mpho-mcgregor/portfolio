@@ -18,6 +18,7 @@ import { getCategory } from '../data/categories';
 import { formatRand } from '../utils/format';
 import { OwnerBooking, OwnerProfile } from '../types';
 import { RootStackParamList } from '../navigation/types';
+import StatusBadge from '../components/StatusBadge';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,12 +29,6 @@ const StatCard: React.FC<{ icon: string; label: string; value: string }> = ({ ic
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
-
-const statusMeta: Record<string, { label: string; color: string }> = {
-  paid: { label: 'Awaiting confirmation', color: colors.star },
-  confirmed: { label: 'Confirmed', color: colors.success },
-  pending: { label: 'Unpaid', color: colors.textMuted },
-};
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
@@ -56,10 +51,12 @@ const DashboardScreen: React.FC = () => {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const confirm = async (id: string) => {
+  const act = async (id: string, action: 'confirm' | 'decline' | 'complete') => {
     setConfirmingId(id);
     try {
-      await api.confirmBooking(id);
+      if (action === 'confirm') await api.confirmBooking(id);
+      else if (action === 'decline') await api.declineBooking(id);
+      else await api.completeBooking(id);
       await load();
     } catch {
       // leave as-is on failure
@@ -128,16 +125,22 @@ const DashboardScreen: React.FC = () => {
             </View>
           )}
 
-          <Pressable style={styles.previewLink} onPress={() => navigation.navigate('CreativeDetail', { creativeId: profile.id })}>
-            <Ionicons name="eye-outline" size={16} color={colors.primary} />
-            <Text style={styles.previewText}>View public profile</Text>
-          </Pressable>
+          <View style={styles.linkRow}>
+            <Pressable style={styles.link} onPress={() => navigation.navigate('CreativeDetail', { creativeId: profile.id })}>
+              <Ionicons name="eye-outline" size={16} color={colors.primary} />
+              <Text style={styles.linkText}>View public profile</Text>
+            </Pressable>
+            <Pressable style={styles.link} onPress={() => navigation.navigate('EditProfile')}>
+              <Ionicons name="create-outline" size={16} color={colors.primary} />
+              <Text style={styles.linkText}>Edit profile</Text>
+            </Pressable>
+          </View>
 
           <Text style={styles.sectionTitle}>Incoming bookings</Text>
         </View>
       }
       renderItem={({ item }) => {
-        const meta = statusMeta[item.status] ?? statusMeta.pending;
+        const busy = confirmingId === item.id;
         return (
           <View style={styles.booking}>
             <View style={styles.bookingTop}>
@@ -148,21 +151,25 @@ const DashboardScreen: React.FC = () => {
               <Text style={styles.bookingAmount}>{formatRand(item.amount)}</Text>
             </View>
             <View style={styles.bookingBottom}>
-              <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
-              <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
-              {item.status === 'paid' && (
-                <Pressable
-                  style={styles.confirmBtn}
-                  onPress={() => confirm(item.id)}
-                  disabled={confirmingId === item.id}
-                >
-                  {confirmingId === item.id ? (
-                    <ActivityIndicator size="small" color={colors.background} />
-                  ) : (
+              <View style={{ flex: 1 }}>
+                <StatusBadge status={item.status} />
+              </View>
+              {busy ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : item.status === 'paid' ? (
+                <View style={styles.actions}>
+                  <Pressable style={styles.declineBtn} onPress={() => act(item.id, 'decline')}>
+                    <Text style={styles.declineText}>Decline</Text>
+                  </Pressable>
+                  <Pressable style={styles.confirmBtn} onPress={() => act(item.id, 'confirm')}>
                     <Text style={styles.confirmText}>Confirm</Text>
-                  )}
+                  </Pressable>
+                </View>
+              ) : item.status === 'confirmed' ? (
+                <Pressable style={styles.confirmBtn} onPress={() => act(item.id, 'complete')}>
+                  <Text style={styles.confirmText}>Mark complete</Text>
                 </Pressable>
-              )}
+              ) : null}
             </View>
           </View>
         );
@@ -206,8 +213,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md,
   },
   alertText: { color: colors.background, fontSize: 13, fontWeight: '700', flex: 1 },
-  previewLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg },
-  previewText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  linkRow: { flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  linkText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: spacing.xl, marginBottom: spacing.md },
   booking: {
     backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md,
@@ -218,13 +226,17 @@ const styles = StyleSheet.create({
   bookingClient: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   bookingAmount: { color: colors.text, fontSize: 15, fontWeight: '800' },
   bookingBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: '700', flex: 1 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   confirmBtn: {
     backgroundColor: colors.primary, borderRadius: radius.sm,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minWidth: 84, alignItems: 'center',
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center',
   },
   confirmText: { color: colors.background, fontWeight: '800', fontSize: 13 },
+  declineBtn: {
+    backgroundColor: colors.surfaceAlt, borderRadius: radius.sm,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center',
+  },
+  declineText: { color: colors.danger, fontWeight: '800', fontSize: 13 },
   emptyBookings: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xl },
 });
 

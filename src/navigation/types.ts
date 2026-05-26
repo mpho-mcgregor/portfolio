@@ -22,5 +22,7 @@ export type RootStackParamList = {
   };
   Dashboard: undefined;
   BecomeCreative: undefined;
+  EditProfile: undefined;
+  Notifications: undefined;
   Auth: undefined;
 };

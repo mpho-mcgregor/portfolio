@@ -29,7 +29,11 @@ the web**) and a **Node + Express + SQLite** REST API backend.
   reference number appear on the Account tab.
 - **Creative dashboard** – any user can create their own creative profile
   (two-sided marketplace) and get a dashboard with stats (bookings, revenue,
-  rating, likes) and a list of incoming bookings they can **confirm**.
+  rating, likes), plus **edit their profile and services** at any time.
+- **Full booking lifecycle** – creatives can **confirm**, **decline** or
+  **mark complete**; clients can **cancel**. Status is shown on both sides.
+- **Notification center** – an in-app feed (with unread badge on the home bell)
+  records every booking event and new review, complemented by push.
 - **Push notifications** – the client gets a confirmation notification on
   checkout, the creative is pushed when a new booking arrives, and the client is
   pushed again when the creative confirms (Expo push + local notifications).
@@ -48,7 +52,8 @@ src/
   data/                    Static reference data (provinces, categories)
   navigation/              Bottom tabs + stack navigation
   screens/                 Home, Browse, Favourites, Account, Detail, Booking,
-                           Checkout, Dashboard, BecomeCreative, Auth
+                           Checkout, Dashboard, BecomeCreative, EditProfile,
+                           Notifications, Auth
   components/              Reusable UI (cards, chips, stars, like button)
   theme.ts                 Colours, spacing, radii
 
@@ -58,7 +63,8 @@ server/                    Node + Express + SQLite REST API
   src/seed.js + seedData.js  Sample data seeding
   src/auth.js              JWT signing + auth middleware
   src/push.js              Best-effort Expo push sending
-  src/routes/              auth, creatives (+likes/reviews), bookings, me (dashboard)
+  src/notify.js            Persist in-app notification + push
+  src/routes/              auth, creatives, bookings, me (dashboard), notifications
 ```
 
 ## Getting started
@@ -112,9 +118,19 @@ Then open the app:
 | GET    | `/api/bookings`                | ✓    | Current user's bookings           |
 | POST   | `/api/bookings`                | ✓    | Create a booking request          |
 | POST   | `/api/bookings/:id/confirm`    | ✓    | Creative confirms a booking       |
+| POST   | `/api/bookings/:id/decline`    | ✓    | Creative declines a booking       |
+| POST   | `/api/bookings/:id/complete`   | ✓    | Creative marks booking complete   |
+| POST   | `/api/bookings/:id/cancel`     | ✓    | Client cancels their booking      |
 | GET    | `/api/me/creative`             | ✓    | Own creative profile + stats      |
 | POST   | `/api/me/creative`             | ✓    | Create own creative profile       |
+| PUT    | `/api/me/creative`             | ✓    | Edit own profile fields           |
+| POST   | `/api/me/creative/services`    | ✓    | Add a service                     |
+| PUT    | `/api/me/creative/services/:id`| ✓    | Edit a service                    |
+| DELETE | `/api/me/creative/services/:id`| ✓    | Remove a service                  |
 | GET    | `/api/me/creative/bookings`    | ✓    | Bookings for own profile          |
+| GET    | `/api/notifications`           | ✓    | In-app notification feed          |
+| GET    | `/api/notifications/unread-count` | ✓ | Unread notification count         |
+| POST   | `/api/notifications/read`      | ✓    | Mark all notifications read       |
 
 Data is stored in a local SQLite file (`server/data.db`), created and seeded
 automatically on first run. Set `JWT_SECRET` and `PORT` env vars to configure

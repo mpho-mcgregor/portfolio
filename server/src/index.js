@@ -6,6 +6,7 @@ import { authRouter } from './routes/authRoutes.js';
 import { creativesRouter } from './routes/creatives.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { meRouter } from './routes/me.js';
+import { notificationsRouter } from './routes/notifications.js';
 import { CATEGORIES, PROVINCES } from './seedData.js';
 
 const PORT = process.env.PORT || 4000;
@@ -24,6 +25,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/creatives', creativesRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/me', meRouter);
+app.use('/api/notifications', notificationsRouter);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

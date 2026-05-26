@@ -1,4 +1,5 @@
 import {
+  AppNotification,
   Booking,
   Category,
   CreativeDetail,
@@ -8,8 +9,11 @@ import {
   OwnerProfile,
   Province,
   Review,
+  Service,
   User,
 } from '../types';
+
+type ServiceInput = { title: string; description: string; price: number };
 
 /**
  * Base URL of the CreativeConnect API.
@@ -101,12 +105,35 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  updateMyCreative: (data: Omit<NewCreativeInput, 'services'>) =>
+    request<{ id: string }>('/api/me/creative', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  addService: (data: ServiceInput) =>
+    request<Service>('/api/me/creative/services', { method: 'POST', body: JSON.stringify(data) }),
+  updateService: (id: string, data: ServiceInput) =>
+    request<Service>(`/api/me/creative/services/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteService: (id: string) =>
+    request<{ ok: boolean }>(`/api/me/creative/services/${id}`, { method: 'DELETE' }),
   getMyCreativeBookings: () => request<OwnerBooking[]>('/api/me/creative/bookings'),
   confirmBooking: (id: string) =>
     request<{ id: string; status: string }>(`/api/bookings/${id}/confirm`, { method: 'POST' }),
+  declineBooking: (id: string) =>
+    request<{ id: string; status: string }>(`/api/bookings/${id}/decline`, { method: 'POST' }),
+  completeBooking: (id: string) =>
+    request<{ id: string; status: string }>(`/api/bookings/${id}/complete`, { method: 'POST' }),
+
+  // Notifications
+  getNotifications: () => request<AppNotification[]>('/api/notifications'),
+  getUnreadCount: () => request<{ count: number }>('/api/notifications/unread-count'),
+  markNotificationsRead: () =>
+    request<{ ok: boolean }>('/api/notifications/read', { method: 'POST' }),
 
   // Bookings
   getBookings: () => request<Booking[]>('/api/bookings'),
+  cancelBooking: (id: string) =>
+    request<{ id: string; status: string }>(`/api/bookings/${id}/cancel`, { method: 'POST' }),
   createBooking: (data: {
     creativeId: string;
     serviceId: string;
