@@ -88,11 +88,17 @@ export const api = {
 
   // Bookings
   getBookings: () => request<Booking[]>('/api/bookings'),
-  createBooking: (data: { creativeId: string; serviceId: string; date: string; name: string }) =>
-    request<{ id: string; date: string; name: string }>('/api/bookings', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createBooking: (data: {
+    creativeId: string;
+    serviceId: string;
+    date: string;
+    name: string;
+    paid?: boolean;
+  }) =>
+    request<{ id: string; date: string; name: string; amount: number; status: string; reference: string }>(
+      '/api/bookings',
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
 };
 
 export { ApiError };

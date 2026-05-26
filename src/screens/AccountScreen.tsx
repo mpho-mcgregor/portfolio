@@ -94,7 +94,15 @@ const AccountScreen: React.FC = () => {
               </Text>
               <Text style={styles.bookingDate}>{item.date}</Text>
             </View>
-            <Text style={styles.bookingPrice}>{formatRand(item.servicePrice)}</Text>
+            <View style={styles.bookingRight}>
+              <Text style={styles.bookingPrice}>{formatRand(item.amount)}</Text>
+              {item.status === 'paid' && (
+                <View style={styles.paidBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                  <Text style={styles.paidText}>Paid</Text>
+                </View>
+              )}
+            </View>
           </Pressable>
         )}
         contentContainerStyle={styles.list}
@@ -156,7 +164,10 @@ const styles = StyleSheet.create({
   bookingTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   bookingMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   bookingDate: { color: colors.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  bookingRight: { alignItems: 'flex-end', gap: 4 },
   bookingPrice: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  paidBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  paidText: { color: colors.success, fontSize: 11, fontWeight: '700' },
   emptyBookings: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xxl },
 });
 

@@ -38,9 +38,6 @@ const BookingScreen: React.FC = () => {
   const [name, setName] = useState(user?.name ?? '');
   const [date, setDate] = useState('');
   const [selectedService, setSelectedService] = useState<string | undefined>(route.params.serviceId);
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
     api.getCreative(creativeId)
@@ -79,44 +76,20 @@ const BookingScreen: React.FC = () => {
   }
 
   const service = creative.services.find((s) => s.id === selectedService);
-  const canSubmit = !!(name.trim() && date.trim() && selectedService) && !submitting;
+  const canSubmit = !!(name.trim() && date.trim() && service);
 
-  const confirm = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    setErrorMsg(null);
-    try {
-      await api.createBooking({
-        creativeId: creative.id,
-        serviceId: selectedService!,
-        date: date.trim(),
-        name: name.trim(),
-      });
-      setConfirmed(true);
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Could not create booking');
-    } finally {
-      setSubmitting(false);
-    }
+  const proceed = () => {
+    if (!canSubmit || !service) return;
+    navigation.navigate('Checkout', {
+      creativeId: creative.id,
+      creativeName: creative.name,
+      serviceId: service.id,
+      serviceTitle: service.title,
+      amount: service.price,
+      date: date.trim(),
+      name: name.trim(),
+    });
   };
-
-  if (confirmed) {
-    return (
-      <View style={styles.centered}>
-        <View style={styles.checkCircle}>
-          <Ionicons name="checkmark" size={48} color={colors.background} />
-        </View>
-        <Text style={styles.confirmTitle}>Booking requested!</Text>
-        <Text style={styles.confirmText}>
-          {creative.name} will be in touch to confirm{' '}
-          {service ? `"${service.title}"` : 'your booking'} on {date}.
-        </Text>
-        <Pressable style={styles.doneButton} onPress={() => navigation.navigate('Tabs', { screen: 'AccountTab' })}>
-          <Text style={styles.doneButtonText}>View my bookings</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView
@@ -171,25 +144,19 @@ const BookingScreen: React.FC = () => {
 
         {service && (
           <View style={styles.summary}>
-            <Text style={styles.summaryLabel}>Estimated total</Text>
+            <Text style={styles.summaryLabel}>Total to pay</Text>
             <Text style={styles.summaryValue}>{formatRand(service.price)}</Text>
           </View>
         )}
 
-        {errorMsg && <Text style={styles.errorMsg}>{errorMsg}</Text>}
-
         <Pressable
           style={[styles.submit, !canSubmit && styles.submitDisabled]}
-          onPress={confirm}
+          onPress={proceed}
           disabled={!canSubmit}
         >
-          <Text style={styles.submitText}>
-            {submitting ? 'Sending…' : 'Confirm booking request'}
-          </Text>
+          <Ionicons name="card-outline" size={18} color={colors.background} />
+          <Text style={styles.submitText}>Proceed to checkout</Text>
         </Pressable>
-        <Text style={styles.disclaimer}>
-          This sends a request to the creative. No payment is taken in this demo.
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -234,20 +201,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: { color: colors.textMuted, fontSize: 14 },
   summaryValue: { color: colors.text, fontSize: 20, fontWeight: '800' },
-  errorMsg: { color: colors.danger, fontSize: 13, textAlign: 'center', marginTop: spacing.md },
   submit: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
     backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: spacing.lg,
-    alignItems: 'center', marginTop: spacing.xl,
+    marginTop: spacing.xl,
   },
   submitDisabled: { opacity: 0.4 },
   submitText: { color: colors.background, fontWeight: '800', fontSize: 16 },
-  disclaimer: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: spacing.md },
-  checkCircle: {
-    width: 96, height: 96, borderRadius: 48, backgroundColor: colors.success,
-    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
-  },
-  confirmTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
-  confirmText: { color: colors.textMuted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
   doneButton: {
     backgroundColor: colors.primary, borderRadius: radius.pill,
     paddingHorizontal: spacing.xxl, paddingVertical: spacing.md, marginTop: spacing.lg,

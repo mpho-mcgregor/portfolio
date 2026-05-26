@@ -74,6 +74,9 @@ export function initSchema() {
       service_id TEXT NOT NULL REFERENCES services(id),
       name TEXT NOT NULL,
       date TEXT NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reference TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
   `);

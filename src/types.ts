@@ -65,6 +65,9 @@ export interface Booking {
   id: string;
   date: string;
   name: string;
+  amount: number;
+  status: 'paid' | 'pending';
+  reference: string;
   creativeId: string;
   creativeName: string;
   city: string;

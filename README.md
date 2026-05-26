@@ -24,8 +24,9 @@ the web**) and a **Node + Express + SQLite** REST API backend.
 - **Likes** – tap the heart to like a creative; saved per-user to your
   Favourites tab.
 - **Reviews** – read ratings and reviews, and add your own (signed in).
-- **Bookings** – pick a service, choose a date, send a request, and see all your
-  bookings on the Account tab.
+- **Bookings & mock checkout** – pick a service, choose a date, then pay through
+  a simulated card checkout (no real charge). Paid bookings, amounts and a
+  reference number appear on the Account tab.
 - **Responsive layout** – adapts to phones, tablets and the web (responsive
   category grid, safe-area handling, keyboard-aware forms).
 
@@ -39,7 +40,7 @@ src/
   context/AppContext.tsx   Creatives list + likes, backed by the API
   data/                    Static reference data (provinces, categories)
   navigation/              Bottom tabs + stack navigation
-  screens/                 Home, Browse, Favourites, Account, Detail, Booking, Auth
+  screens/                 Home, Browse, Favourites, Account, Detail, Booking, Checkout, Auth
   components/              Reusable UI (cards, chips, stars, like button)
   theme.ts                 Colours, spacing, radii
 

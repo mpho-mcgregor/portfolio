@@ -13,6 +13,7 @@ import FavoritesScreen from '../screens/FavoritesScreen';
 import AccountScreen from '../screens/AccountScreen';
 import CreativeDetailScreen from '../screens/CreativeDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
 import AuthScreen from '../screens/AuthScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -74,6 +75,7 @@ const RootNavigator: React.FC = () => (
       <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
       <Stack.Screen name="CreativeDetail" component={CreativeDetailScreen} options={{ title: '' }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: 'Request Booking' }} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
       <Stack.Screen
         name="Auth"
         component={AuthScreen}
