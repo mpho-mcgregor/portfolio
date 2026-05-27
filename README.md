@@ -69,31 +69,38 @@ server/                    Node + Express + SQLite REST API
 
 ## Getting started
 
-You need [Node.js](https://nodejs.org/) (18+) installed. You'll run **two**
-processes: the backend API and the Expo app.
+You need [Node.js](https://nodejs.org/) (18+) installed. The app and the backend
+API run together.
 
-### 1. Start the backend
-
-```bash
-cd server
-npm install
-npm start          # API runs on http://localhost:4000 and seeds sample data
-```
-
-### 2. Start the app (in a second terminal)
+### Quick start (one command)
 
 ```bash
-npm install        # from the project root
-npm start
+npm run setup      # installs app + server dependencies (first time only)
+npm run dev        # starts the API and the Expo app together
 ```
 
-Then open the app:
+`npm run dev` runs the backend (http://localhost:4000) and the Expo dev server
+side by side; press `Ctrl+C` once to stop both.
 
-- **On your phone:** install the **Expo Go** app (iOS App Store / Google Play),
-  then scan the QR code shown in the terminal. A phone can't reach
-  `localhost` on your computer, so point it at your computer's LAN IP:
+### Manual (two terminals)
+
+If you prefer to run them separately:
+
+```bash
+# Terminal 1 — backend
+cd server && npm install && npm start
+
+# Terminal 2 — app (from the project root)
+npm install && npm start
+```
+
+### Opening the app
+
+- **On your iPhone/Android:** install the **Expo Go** app, then scan the QR code
+  in the terminal. A phone can't reach `localhost` on your computer, so point it
+  at your computer's LAN IP (find it with `ipconfig getifaddr en0` on macOS):
   ```bash
-  EXPO_PUBLIC_API_URL=http://192.168.0.10:4000 npm start
+  EXPO_PUBLIC_API_URL=http://192.168.0.10:4000 npm run dev
   ```
   (replace `192.168.0.10` with your machine's IP on the same Wi-Fi).
 - **Android emulator:** press `a` (or `npm run android`).
